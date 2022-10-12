@@ -1,0 +1,28 @@
+{
+  "name": "wd_bridge",
+  "version": "0.1.0",
+  "description": "A pretty simple node.js application. Gotta start some place.",
+  "main": "server.js",
+  "dependencies": {
+    "basic-auth-connect": "^1.0.0",
+    "cors": "^2.8.5",
+    "express": "^4.18.1",
+    "ibm-watson": "^7.0.0",
+    "nodemon": "^2.0.19"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/iymh/wd_bridge.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/iymh/wd_bridge/issues"
+  },
+  "homepage": "https://github.com/iymh/wd_bridge#readme"
+}
