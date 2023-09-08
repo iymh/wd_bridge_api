@@ -18,6 +18,7 @@ server
    .use(bodyParser.urlencoded({
      extended: false
    }))
+   .use(express.static('public'))
 
    // CORS
    .use(cors())
@@ -36,7 +37,7 @@ server
       let body = req.body;
 
       // Check Params
-      if (!(body.params.projectId && body.params.projectId.length > 1)) {
+      if (!(body.params)) {
          res.status(500).send({"error": "Invalid projectId!"});
          return;
       }
@@ -66,6 +67,18 @@ server
                .catch(err => {
                   console.log('error:', err);
                   res.status(500).send({"error": "Failed Watson Discovery query."});
+               });
+            break;
+
+         case "listProjects":
+            discovery.listProjects()
+               .then(response => {
+                  console.log(JSON.stringify(response.result, null, 2));
+                  res.json(response.result);
+               })
+               .catch(err => {
+                  console.log('error:', err);
+                  res.status(500).send({"error": "Failed Watson Discovery listProjects."});
                });
             break;
 

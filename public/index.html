@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+
+  <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/@mdi/font@7.x/css/materialdesignicons.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.min.css" rel="stylesheet">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Watson Discovery Query</title>
+  <style>
+    [v-cloak] {
+      display: none;
+    }
+    .wdt2 {
+      width: 2rem;
+    }
+    .wdt5 {
+      width: 5rem;
+    }
+    .wdt10 {
+      width: 10rem;
+    }
+    .wdt12 {
+      width: 12rem;
+    }
+
+    /* for highlight in discovery result. */
+    em {
+      font-weight: bold;
+      color: red;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="app" v-cloak>
+    <v-app>
+      <v-app-bar app>
+        <v-app-bar-title>Watson Discovery Query</v-app-bar-title>
+        <v-spacer></v-spacer>
+      </v-app-bar>
+
+      <!-- Toast Component -->
+      <v-snackbar
+        v-model="toast.show"
+        bottom
+        multi-line
+        :timeout="toast.timeout"
+        :color="toast.type"
+        @click="toast.show = false">
+        <div class="rw">{{ toast.text }}</div>
+      </v-snackbar>
+
+      <v-dialog id="pr_dialog" v-model="dc_param_dialog">
+        <v-card class="">
+          <v-card-title>
+            <span class="text-h5">Query Parameters</span>
+          </v-card-title>
+          <v-card-text class="flex-grow-1">
+            <v-textarea
+              v-model="dc_paramjson"
+              label="Request Params"
+              outlined
+              rows="5"
+            ></v-textarea>
+          </v-card-text>
+          <v-card-actions>
+            <v-spacer></v-spacer>
+            <v-btn color="secondary"
+              @click="dc_param_dialog=false">
+              Cancel
+            </v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-dialog>
+
+      <v-main>
+        <v-container>
+
+          <v-divider></v-divider>
+          <div class="ma-2">
+            <v-row class="justify-center align-center ma-3">
+              <v-combobox
+                class="flex-grow-1 ma_lr_1rem ma_tp_05rem"
+                v-model="dc_inputnlq"
+                :items="dc_inputnlq_items"
+                label="Natural Language Query"
+                outlined
+                clearable
+                counter
+                dense
+                rows="1"
+                ref="nlq_combobox"
+              ></v-combobox>
+            </v-row>
+
+            <v-row class="justify-center align-center ma-3">
+              <v-select
+                class="wdt12"
+                label="Project"
+                outlined
+                dense
+                :items="dc_projects"
+                item-text="name"
+                item-value="project_id"
+                v-model="dc_project_selected"
+                return-object
+                hide-details
+              ></v-select>
+
+              <v-select
+                label="Collections"
+                outlined
+                dense
+                multiple
+                :items="dc_collections"
+                item-text="name"
+                item-value="collection_id"
+                v-model="dc_collections_selected"
+                return-object
+                hide-details
+              ></v-select>
+            </v-row>
+
+            <v-row class="justify-center align-center ma-3">
+              <v-switch
+                class = "ma-2"
+                dense
+                hide-details
+                v-model="dc_isAF"
+                label="Answer Findings"
+              ></v-switch>
+
+              <v-btn 
+                tile color="primary"
+                elevation="1"
+                rounded
+                @click="sendQuery()">
+                <v-icon left>mdi-card-search-outline</v-icon>
+                <span>Search</span>
+              </v-btn>
+
+              <v-btn color="primary"
+                icon elevation="1"
+                @click="dc_param_dialog=true">
+                <v-icon>mdi-code-json</v-icon>
+              </v-btn>
+
+            </v-row>
+          </div>
+
+          <v-divider></v-divider>
+          <div class="text-h5 primary--text">Result:</div>
+          <div class="ma-2">
+            <v-row class="justify-center">
+              <div class="flex-grow-1">
+                <div class="ma-5">
+                  <v-data-table
+                    :items = "dc_outputjsons"
+                    :loading = "dc_tbl_loading"
+                    disable-pagination
+                    disable-sort
+                    :items-per-page="100"
+                    no-data-text="データがありません"
+                    hide-default-header
+                    hide-default-footer
+                    fixed
+                  >
+                    <template v-slot:[`item`]="{ item }">
+                      <div class="ma-2 elevation-1">
+
+                        <div class="d-flex align-center">
+                          <div class="wdt2 text-center">{{ item.no }}</div>
+                          <!-- File Name -->
+                          <v-icon v-if="item.extracted_metadata.file_type" class="secondary--text">{{ getMdiIcon(item.extracted_metadata.file_type) }}</v-icon>
+                          <div v-if="(item.metadata.source && item.metadata.source.url && item.extracted_metadata.filename)" class="text-h6">
+                            <a :href="item.metadata.source.url" target="_blank">{{ item.extracted_metadata.filename }}</a>
+                          </div>
+                        </div>
+
+                        <div class="ma-2">
+                          <!-- Answer Findings -->
+                          <div class="d-flex" v-if="item.document_passages.length > 0 && item.document_passages[0].answers && item.document_passages[0].answers.length > 0">
+                            <div class="flex-grow-1 accent">{{ item.document_passages[0].answers[0].answer_text }}</div>
+                            <div class="wdt10 info--text text-center" v-if="item.document_passages[0].answers[0].confidence">回答スコア: {{ `${(item.document_passages[0].answers[0].confidence *100).toFixed(1)}` }}</div>
+                          </div>
+
+                          <!-- Title -->
+                          <div class="d-flex align-center elevation-1" v-if="item.extracted_metadata">
+                            <div class="flex-grow-1 primary--text">{{ item.extracted_metadata.title }}</div>
+                            <div class="wdt10 info text-center" v-if="item.result_metadata.confidence">検索スコア: {{ `${(item.result_metadata.confidence *100).toFixed(1)}` }}</div>
+                          </div>
+
+                          <!-- Passages -->
+                          <div class="" v-if="item.document_passages.length > 0" v-html="item.document_passages[0].passage_text"></div>
+
+                          <div class="d-flex">
+                            <!-- Source Path -->
+                            <div v-if="(item.metadata.source && item.metadata.source.path_text)" class="text-sm-caption secondary--text">
+                              {{ item.metadata.source.path_text }}
+                            </div>
+                            
+                            <!-- Collection Name -->
+                            <div v-if="item.result_metadata.collection_id" class="text-sm-caption info--text ma_lr_1rem">
+                              {{ getCollectionsNames(item.result_metadata.collection_id) }}
+                            </div>
+                          </div>
+
+                        </div>
+                      </div>
+
+                    </template>
+                  </v-data-table>
+
+                </div>
+              </div>
+            </v-row>
+          </div>
+
+        </v-container>
+      </v-main>
+    </v-app>
+  </div>
+
+
+  <script src="https://cdn.jsdelivr.net/npm/vue@2.x/dist/vue.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.js"></script>
+  <script>
+    const LOCAL_URL = "./";
+
+    new Vue({
+      el: '#app',
+      vuetify: new Vuetify(),
+
+      data:() => ({
+        // components
+        toast:{
+          show: false,
+          timeout: 5000,
+          type: "primary",
+          text:""
+        },
+
+        // Discovery API
+        dc_param_dialog: false,
+        dc_paramjson: JSON.stringify({
+          "projectId": "", 
+          "collectionIds":[],
+          "filter": "",
+          "passages":{
+              "enabled":true,
+              "find_answers":false,
+              "per_document":true
+          },
+          "count":10,
+          // "aggregation":"",
+          "_return":[],
+          // "naturalLanguageQuery":""
+        }),
+
+        dc_projects: [],
+        dc_project_selected: "",
+        dc_collections: [],
+        dc_collections_selected: [],
+
+        dc_inputnlq: "Watson",
+        dc_inputnlq_items:[
+          "Watson", "ライトプラン"
+        ],
+        dc_isAF: false,
+
+        dc_tbl_loading: false,
+        dc_outputjsons: [],
+      }),
+
+      watch: {
+        dc_project_selected: function(pid) {
+          console.log("[dc_projects_selected] change", pid.project_id);
+          let param = JSON.parse(this.dc_paramjson);
+          param.projectId = pid.project_id;
+          this.dc_paramjson = JSON.stringify(param);
+
+          this.listCollections();
+        },
+
+        dc_collections_selected: function(cids) {
+          console.log("[dc_collections_selected] change", cids);
+          let param = JSON.parse(this.dc_paramjson);
+          param.collectionIds = cids.map(c => c.collection_id);
+          this.dc_paramjson = JSON.stringify(param);
+        },
+
+        dc_isAF: function(onoff) {
+          console.log("[dc_isAF] change", onoff);
+          let param = JSON.parse(this.dc_paramjson);
+          param.passages.find_answers = onoff;
+          this.dc_paramjson = JSON.stringify(param);
+        }
+      },
+
+      methods: {
+        // Common
+        getMdiIcon(type) {
+          // console.log("[Main][getMdiIcon]", type);
+
+          let mdiname = "mdi-file-question-outline";
+          switch (type) {
+            case "html":
+              mdiname = "mdi-language-html5";
+              break;
+            case "pdf":
+              mdiname = "mdi-file-pdf-box";
+              break;
+            case "jpg":
+            case "jpeg":
+              mdiname = "mdi-file-jpg-box";
+              break;
+            case "xls":
+            case "xlsx":
+              mdiname = "mdi-microsoft-excel";
+              break;
+            case "word":
+            case "doc":
+            case "docx":
+              mdiname = "mdi-microsoft-word";
+              break;
+            case "powerpoint":
+            case "ppt":
+            case "pptx":
+              mdiname = "mdi-microsoft-powerpoint";
+              break;
+          }
+          return mdiname;
+        },
+
+        getCollectionsNames(coll_id) {
+          let col = this.dc_collections.find(col => col.collection_id === coll_id);
+          if (col) {
+            return col.name;
+          } else {
+            return null;
+          }
+        },
+
+        // components
+        showToast(msg) {
+          this.toast.text = msg;
+          this.toast.show = true;
+        },
+
+        // Send Request
+        async callapi(method, api, params) {
+          console.log("[callapi]", api);
+
+          console.log("fetch start");
+          let res = await fetch(`${LOCAL_URL}api`, {
+            method: method,
+            // mode: "cors",
+            // cache: "no-cache",
+            headers: {
+              "Content-Type": "application/json",
+              'Authorization': 'Basic ' + btoa('test' + ":" + 'test')
+            },
+            body: JSON.stringify({
+              "api":api,
+              "params":params}
+            )
+          });
+          console.log("fetch end", res);
+          if (!res.ok) {
+            throw new Error(`status = ${res.status}, statusText = ${res.statusText}`);
+          } 
+          const jsondata = await res.json();
+          console.log("jsondata : " + JSON.stringify(jsondata));
+          return jsondata;
+        },
+
+        async listProjects(showtoast) {
+          console.log("[listProjects]", this.dc_paramjson);
+
+          let jsn = JSON.parse(this.dc_paramjson);
+          if (!jsn) return
+
+          let prm = {};
+
+          // clear
+          this.dc_projects = [];
+          this.dc_collections = [];
+
+          let ret = await this.callapi("POST", "listProjects", prm);
+          if (ret) {
+            this.dc_projects = ret.projects;
+            this.dc_project_selected = ret.projects[0]; // set first item
+            console.log(ret);
+            if (showtoast) this.showToast("プロジェクトの取得が完了しました");
+            return true;
+          } else {
+            if (showtoast) this.showToast("プロジェクトの取得が失敗しました");
+            return false;
+          }
+        },
+
+        async listCollections(showtoast) {
+          console.log("[listCollections]", this.dc_paramjson);
+
+          let jsn = JSON.parse(this.dc_paramjson);
+          if (!jsn) return
+
+          let prm = {
+            "projectId": this.dc_project_selected.project_id
+          };
+          console.log(prm);
+
+          // clear collections
+          this.dc_collections = [];
+
+          let ret = await this.callapi("POST", "listCollections", prm);
+          if (ret) {
+            this.dc_collections = ret.collections;
+            if (showtoast) this.showToast("コレクションの取得が完了しました");
+            return true;
+          } else {
+            if (showtoast) this.showToast("コレクションの取得が失敗しました");
+            return false;
+          }
+        },
+
+        async sendQuery(showtoast) {
+          console.log("[sendQuery]", this.dc_paramjson);
+
+          let jsn = JSON.parse(this.dc_paramjson);
+          if (!jsn) return
+
+          // NLQ
+          if (this.dc_inputnlq) {
+            jsn.naturalLanguageQuery = this.dc_inputnlq.replace(/\n/g,'');
+          } else {
+            jsn.naturalLanguageQuery = "";
+          }
+
+          // clear table views
+          this.dc_outputjsons = [];
+
+          let prm = JSON.parse(JSON.stringify(jsn)); // deep copy.
+          this.dc_tbl_loading = true;
+
+          let ret = true;
+          let ret_json = await this.callapi("POST", "query", prm);
+          if (ret_json) {
+            this.setResultTable(ret_json);
+            if (showtoast) this.showToast("データの取得が完了しました");
+          } else {
+            if (showtoast) this.showToast("データの取得が失敗しました");
+            ret = false;
+          }
+          this.dc_tbl_loading = false;
+          return ret;
+        },
+
+        // Result
+        setResultTable(json) {
+          // convert json to array for table.
+          console.log("[setResultTable]");
+          if (!json.results) return;
+
+          let target = [];
+
+          let cnt = 1;
+          let len = json.results.length;
+          for (let i=0; i<len; i++) {
+
+            let item = json.results[i];
+            if (item && item.document_passages) {
+              // create folder path text.
+              if (item.metadata &&
+                  item.metadata.source &&
+                  item.metadata.source.path_text) {
+                item.metadata.source.path_text = "";
+
+                if (item.metadata &&
+                    item.metadata.source &&
+                    item.metadata.source.path_collection &&
+                    item.metadata.source.path_collection.entries) {
+                    let folderpath = item.metadata.source.path_collection.entries;
+                    if (folderpath.length > 0) {
+                      if (folderpath[0].name !== "すべてのファイル") folderpath = folderpath.reverse();
+                        item.metadata.source.path_text = folderpath.map(item => item.name).join(" > ");
+                    }
+                }
+              }
+
+              target.push({
+                "no": cnt,
+                "document_id": item.document_id,
+                "result_metadata": item.result_metadata,
+                "extracted_metadata":item.extracted_metadata,
+                "metadata": item.metadata,
+                "document_passages":item.document_passages,
+                "projectId": item.projectId
+              });
+              cnt++;
+            }
+          }
+          this.dc_outputjsons = target;
+        },
+
+        // init
+        async init() {
+          let ret_prj = await this.listProjects();
+          console.log("[init] listProjects return:", ret_prj);
+        }
+      },
+      mounted() {
+        console.log("vue mounted.");
+        this.init();
+      }
+    })
+
+  </script>
+</body>
+
+</html>
