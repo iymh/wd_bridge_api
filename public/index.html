@@ -198,15 +198,18 @@
                           <!-- Passages -->
                           <div class="" v-if="item.document_passages.length > 0" v-html="item.document_passages[0].passage_text"></div>
 
-                          <div class="d-flex">
-                            <!-- Source Path -->
-                            <div v-if="(item.metadata.source && item.metadata.source.path_text)" class="text-sm-caption secondary--text">
-                              {{ item.metadata.source.path_text }}
-                            </div>
-                            
+                          <!-- Customize field -->
+                          <div class="" v-if="item.answer && item.answer.length > 0">A: {{ item.answer }}</div>
+                          <div class="warning--text" v-if="item.question && item.question.length > 0">Q: {{ item.question }}</div>
+
+                          <div class="d-flex justify-sm-space-between">
                             <!-- Collection Name -->
                             <div v-if="item.result_metadata.collection_id" class="text-sm-caption info--text ma_lr_1rem">
                               {{ getCollectionsNames(item.result_metadata.collection_id) }}
+                            </div>
+                            <!-- Source Path -->
+                            <div v-if="(item.metadata.source && item.metadata.source.path_text)" class="text-sm-caption secondary--text">
+                              {{ item.metadata.source.path_text }}
                             </div>
                           </div>
 
@@ -333,6 +336,9 @@
             case "pptx":
               mdiname = "mdi-microsoft-powerpoint";
               break;
+            case "csv":
+              mdiname = "mdi-file-delimited-outline";
+              break;
           }
           return mdiname;
         },
@@ -375,7 +381,7 @@
             throw new Error(`status = ${res.status}, statusText = ${res.statusText}`);
           } 
           const jsondata = await res.json();
-          console.log("jsondata : " + JSON.stringify(jsondata));
+          // console.log("jsondata : " + JSON.stringify(jsondata));
           return jsondata;
         },
 
@@ -417,6 +423,7 @@
 
           // clear collections
           this.dc_collections = [];
+          this.dc_collections_selected = [];
 
           let ret = await this.callapi("POST", "listCollections", prm);
           if (ret) {
@@ -466,7 +473,7 @@
           // convert json to array for table.
           console.log("[setResultTable]");
           if (!json.results) return;
-
+          console.log(json);
           let target = [];
 
           let cnt = 1;
@@ -477,9 +484,8 @@
             if (item && item.document_passages) {
               // create folder path text.
               if (item.metadata &&
-                  item.metadata.source &&
-                  item.metadata.source.path_text) {
-                item.metadata.source.path_text = "";
+                  item.metadata.source) {
+                item.metadata.source.path_text = ""; // init new field.
 
                 if (item.metadata &&
                     item.metadata.source &&
@@ -492,7 +498,8 @@
                     }
                 }
               }
-
+              
+              // set only use datas.
               target.push({
                 "no": cnt,
                 "document_id": item.document_id,
@@ -500,11 +507,16 @@
                 "extracted_metadata":item.extracted_metadata,
                 "metadata": item.metadata,
                 "document_passages":item.document_passages,
-                "projectId": item.projectId
+                "projectId": item.projectId,
+
+                // for customize 
+                "question": item.question,
+                "answer": item.answer
               });
               cnt++;
             }
           }
+          console.log(target);
           this.dc_outputjsons = target;
         },
 
