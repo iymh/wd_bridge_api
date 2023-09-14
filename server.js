@@ -150,7 +150,6 @@ server
 const port = process.env.PORT || 8080;
 server.listen(port, () => {
   // eslint-disable-next-line no-console
-  console.log('Server running on port: %d', port);
-//   console.log('process.env: ', process.env);
+  console.log('Watson Discovery Server running on port: %d', port);
 });
 

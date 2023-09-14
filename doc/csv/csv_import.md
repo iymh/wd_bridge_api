@@ -2,7 +2,7 @@
 
 ## CSVデータをデータ検索に使用するためのカスタマイズ
   * 使用するCSVデータのタイトル部を決定する
-    * "qustion", "answer"がJSONフィールド名に使用されます
+    * "question", "answer"がJSONフィールド名に使用されます
     <div>
       <img src="./csv1.png" width="70%">
     </div>

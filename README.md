@@ -38,7 +38,7 @@ npm install
 ## 開発手順
 ### Discoveryのサービス情報をセットする
   * 展開したフォルダ内で ".env_sample"ファイルを ".env"ファイルにコピーする
-  * IBMCloudのNLUのサービス情報を貼り付ける
+  * IBMCloudのDiscoveryのサービス情報を貼り付ける
     * apikey, url
       <div>
         <img src="./doc/vscode1.png" width="80%">
