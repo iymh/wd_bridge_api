@@ -9,6 +9,11 @@ const basicAuth = require('basic-auth-connect');
 const cors = require('cors');
 require('dotenv').config({ debug:true });
 
+// File upload function
+const fs = require('fs');
+const multer = require('multer');
+const upload = multer({dest: 'tmp/'});
+
 const DiscoveryV2 = require('ibm-watson/discovery/v2');
 const { IamAuthenticator } =require('ibm-watson/auth');
 
@@ -142,7 +147,103 @@ server
                });
             break;
 
+            // check upload file
+            let file = req.file;
+            if (file) {
+               console.log("file:" + file.originalname);
+               body.params.file = fs.createReadStream(file.path);
+            } else {
+               console.log('error: no params');
+               res.status(500).send({"error": "Failed Watson Discovery addDocument. no params."});
+               return;
+            }
+
+            discovery.addDocument(body.params)
+               .then(response => {
+                  // console.log(JSON.stringify(response.result, null, 2));
+                  res.json(response.result);
+               })
+               .catch(err => {
+                  console.log('error:', err);
+                  res.status(500).send({"error": "Failed Watson Discovery addDocument."});
+               });
+            break;
+
          default:
+            console.log("Unsupported api!");
+            res.status(500).send({"error": "Unsupported api!"});
+            break;
+      }
+   })
+
+   .post('/:api/:pid/:cid', upload.single('tmpfile'), async (req, res) => {
+      // Path params
+      let api = req.params.api;
+      if (!api) {
+         console.log('error: no params api');
+         res.status(500).send({"error": "Failed Watson Discovery addDocument."});
+      }
+      let pid = req.params.pid;
+      if (!pid) {
+         console.log('error: no params projectId');
+         res.status(500).send({"error": "Failed Watson Discovery addDocument."});
+      }
+      let cid = req.params.cid;
+      if (!cid) {
+         console.log('error: no params collectionId');
+         res.status(500).send({"error": "Failed Watson Discovery addDocument."});
+      }
+
+      // check Discovery env
+      if (typeof process.env.API_KEY == 'undefined') {
+         console.error('Error: "API_KEY" is not set.');
+         console.error('Please consider adding a .env file with API_KEY.');
+         process.exit(1);
+      }
+
+      const discovery = new DiscoveryV2({
+         version: '{version}',
+         authenticator: new IamAuthenticator({
+            apikey: process.env.API_KEY,
+         }),
+         version: '2020-08-30',
+         serviceUrl: process.env.API_BASE_URL,
+      });
+
+      // check upload file
+      let file = req.file;
+      if (file) {
+         console.log("file:" + file.originalname);
+      } else {
+         console.log('error: no params');
+         res.status(500).send({"error": "Failed Watson Discovery addDocument. no params."});
+         return;
+      }
+
+      switch (api) {
+         case "addDocument":
+            const addParams = {
+               projectId: pid,
+               collectionId: cid,
+               file: fs.createReadStream(file.path),
+               filename: file.originalname,
+               fileContentType: file.mimetype,
+            };
+
+            discovery.addDocument(addParams)
+               .then(response => {
+                  // console.log(JSON.stringify(response.result, null, 2));
+                  res.json(response.result);
+               })
+               .catch(err => {
+                  console.log('error:', err);
+                  res.status(500).send({"error": "Failed Watson Discovery addDocument."});
+               });
+            break;
+
+         default:
+            console.log("Unsupported api!");
+            res.status(500).send({"error": "Unsupported api!"});
             break;
       }
    });

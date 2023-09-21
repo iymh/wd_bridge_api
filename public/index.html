@@ -55,6 +55,7 @@
         <div class="rw">{{ toast.text }}</div>
       </v-snackbar>
 
+      <!-- Discovery Options Dialog -->
       <v-dialog id="pr_dialog" v-model="dc_param_dialog">
         <v-card class="">
           <v-card-title>
@@ -74,6 +75,60 @@
               @click="dc_param_dialog=false">
               Cancel
             </v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-dialog>
+
+      <!-- Add File Dialog -->
+      <v-dialog v-model="dc_addfile.dialog" width="80%" persistent>
+        <v-card>
+          <v-card-title>
+            <span class="headline">Add Files</span>
+          </v-card-title>
+
+          <v-card-text>
+            <v-container>
+              <div class="text-h5 primary--text">Send File:</div>
+              <div class="ma-2">
+                <v-select
+                  label="to Collection"
+                  class="ma-2"
+                  outlined
+                  dense
+                  :items="dc_collections"
+                  item-text="name"
+                  item-value="collection_id"
+                  v-model="dc_addfile.collection_selected"
+                  return-object
+                  hide-details
+                ></v-select>
+
+                <v-file-input 
+                  show-size
+                  label="Add File"
+                  accept="*/*"
+                  hide-details
+                  v-model="dc_addfile.file"
+                ></v-file-input>
+
+                <v-row class="justify-center align-center ma-3">
+                  <v-btn
+                    color="primary"
+                    elevation="1"
+                    :loading="dc_addfile.loading"
+                    @click="addDocument()">
+                    <v-icon left>mdi-send</v-icon>
+                    <span>Send File</span>
+                  </v-btn>
+                </v-row>
+              </div>
+
+            </v-container>
+          </v-card-text>
+
+          <v-card-actions>
+            <v-spacer></v-spacer>
+            <v-btn @click="dc_addfile.dialog=false">Close</v-btn>
           </v-card-actions>
         </v-card>
       </v-dialog>
@@ -124,6 +179,15 @@
                 return-object
                 hide-details
               ></v-select>
+              <v-btn
+                class="ml-1"
+                color="success"
+                elevation="1"
+                fab
+                small
+                @click="dc_addfile.dialog=true">
+                <v-icon>mdi-plus</v-icon>
+              </v-btn>
             </v-row>
 
             <v-row class="justify-center align-center ma-3">
@@ -264,6 +328,13 @@
           "_return":[],
           // "naturalLanguageQuery":""
         }),
+
+        dc_addfile:{
+          dialog: false,
+          collection_selected: "",
+          file: null,
+          loading: false
+        },
 
         dc_projects: [],
         dc_project_selected: "",
@@ -432,6 +503,35 @@
             return true;
           } else {
             if (showtoast) this.showToast("コレクションの取得が失敗しました");
+            return false;
+          }
+        },
+
+        async addDocument() {
+          console.log("[addDocument]", this.dc_paramjson);
+          let showtoast = true;
+
+          let jsn = JSON.parse(this.dc_paramjson);
+          if (!jsn) return
+
+          let formData = new FormData();
+          formData.append('tmpfile', this.dc_addfile.file);
+
+          console.log("fetch start");
+          let ret = await fetch(`${LOCAL_URL}addDocument/${this.dc_project_selected.project_id}/${this.dc_addfile.collection_selected.collection_id}`, {
+            method: "POST",
+            headers: {
+              'Authorization': 'Basic ' + btoa('test' + ":" + 'test')
+            },
+            body: formData
+          });
+          console.log("fetch end", ret);
+
+          if (ret.ok) {
+            if (showtoast) this.showToast("ファイルのアップロードが完了しました");
+            return true;
+          } else {
+            if (showtoast) this.showToast("ファイルのアップロードが失敗しました");
             return false;
           }
         },
