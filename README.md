@@ -35,6 +35,12 @@ npm install
 * "package.json"ファイルのあるフォルダ内で上記を実行
 * "package.json" 記載のモジュールが "node_modules"配下に展開される
 
+* エラーがでる場合はクリーンしてから実行
+```
+npm cahce clean --force
+rm -rf node_modules
+```
+
 ## 開発手順
 ### Discoveryのサービス情報をセットする
   * 展開したフォルダ内で ".env_sample"ファイルを ".env"ファイルにコピーする
