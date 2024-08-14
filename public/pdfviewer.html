@@ -1,0 +1,104 @@
+<html>
+<head>
+    <title>Highlight Sample</title>
+    <style>
+        .flexbox {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #pdf-canvas {
+            border: 1px solid black;
+            direction: ltr;
+        }
+    </style>
+
+    <script src="https://unpkg.com/pdfjs-dist@4.5.136/build/pdf.min.mjs" type="module"></script>
+
+    <script type="module">
+    import PDFVIEWER from "./pdfviewr_lib.js";
+
+    window.onload = async ()=>{
+        console.log("onload");
+
+        // create pdf canvas viewer 1 instance
+        let pdfv1 = new PDFVIEWER("viwer1");
+        console.log("pdfv1", pdfv1);
+
+        // set page controller
+        document.getElementById('prev').addEventListener('click', ()=>{
+            let pageNum = Number(document.getElementById('page_num').value);
+            if (pageNum <= 1) return;
+ 
+            pageNum--;
+            pdfv1.queueRenderPage(pageNum);
+
+            document.getElementById('page_num').value = pageNum;
+        });
+        document.getElementById('next').addEventListener('click', ()=>{
+            let pageNum = Number(document.getElementById('page_num').value);
+            let pageCount = Number(document.getElementById('page_count').value);
+            if (pageNum >= pageCount) return;
+ 
+            pageNum++;
+            pdfv1.queueRenderPage(pageNum);
+
+            document.getElementById('page_num').value = pageNum;
+        });
+        document.getElementById('page_num').addEventListener('change',()=>{
+            let pageNum = Number(document.getElementById('page_num').value);
+            pdfv1.queueRenderPage(pageNum);
+        });
+
+
+        // set html tags
+        let ret = pdfv1.init(
+            document.getElementById('pdf-canvas'),
+            document.getElementById('highlight_parent')
+        );
+        console.log("init", ret);
+        
+        // set Watson Discovery Results 
+        var url = './IBM SPSS Statistics Base_1_compressed.pdf';
+        var targetPageNum = 9;
+        var passage_text = "独立したサンプルの t 検定 独立サンプルの<em>分析</em>では、観測データが 2 つの独立サンプルを含みます。 この場合の各サンプルのデ ータに対する前提は、独立同一分布であり、平均値と<em>分散</em>が一定である正規分布に従い、2 つの平均値 の差に関する統計的推論が引き出されることです。 <em>一</em><em>元</em><em>配置</em><em>分散</em><em>分析</em> <em>分散</em><em>分析</em> (ANOVA) は、複数の母集団 (多くの場合は正規分布であると想定します) の平均値を推定する ための統計手法です。 <em>一</em><em>元</em><em>配置</em><em>分散</em><em>分析</em>はよく使用される<em>分散</em><em>分析</em>であり、2 サンプルの t 検定の拡張 です。";
+
+        document.getElementById('page_num').value = targetPageNum;
+
+        // set PDF infos
+        ret = await pdfv1.setPDFdatas(
+            url,
+            targetPageNum,
+            passage_text
+        );
+        console.log("setPDFdatas", ret);
+        if (ret && ret.max) {
+            document.getElementById('page_count').textContent = ret.max;
+            document.getElementById('page_num').setAttribute("max", ret.max);
+        }
+    }
+    </script>
+</head>
+
+<body>
+    <div class="flexbox">
+        <span>PDF Highlight</span>
+    </div>
+
+    <div class="flexbox" style="justify-content: space-around;">
+        <button id="prev" >Previous</button>
+        <div class="flexbox">
+            <input type="number" id="page_num" value="1" min="1" max="1"></input>
+            <span> / </span>
+            <div id="page_count"></div>
+        </div>
+        <button id="next">Next</button>
+    </div>
+
+    <hr />
+    <div id="highlight_parent"></div>
+    <canvas id="pdf-canvas"></canvas>
+
+</body>
+</html>
