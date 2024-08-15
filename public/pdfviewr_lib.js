@@ -4,7 +4,11 @@ class PDFViewer {
     self.Settings.name = name;
   }
 
+  COLOR_H = "RGBA(255,255,0, 0.5)";
+  COLOR_E = "RGBA(255,0,0, 0.5)";
+
   Settings = {
+    isLog: false,
     name: "",
 
     pdfDoc: null,
@@ -14,8 +18,6 @@ class PDFViewer {
     scale: 1.0,
 
     canvas: null,
-    ctx: null,
-    canvas_rect: null,
     hl_parent: null,
 
     passage_text: "",
@@ -26,6 +28,10 @@ class PDFViewer {
     em_lists: [],
   }
 
+  LOG(...args) {
+    if (self.Settings.isLog) console.log(...args);
+  }
+
   checkContainInEmphasisList(txt) {
     let ret = false;
 
@@ -33,7 +39,6 @@ class PDFViewer {
 
     let contains = self.Settings.em_lists.some(item => txt.includes(item));
     if (contains) {
-      console.log("%c emphasis! ", "color:white; background-color:blue; padding:2px 4px;", txt)
       ret = true;
     }
     return ret;
@@ -41,7 +46,7 @@ class PDFViewer {
 
   // Highlight Rendering
   renderHighlights(item, viewport) {
-    let highlightColor = self.checkContainInEmphasisList(item['str']) ? "red" : "yellow";
+    let highlightColor = self.checkContainInEmphasisList(item['str']) ? self.COLOR_E : self.COLOR_H;
     var item_left = item['transform'][4];
     var item_top = item['transform'][5];
 
@@ -52,10 +57,8 @@ class PDFViewer {
     var view_rect = viewport.convertToViewportRectangle(rect);
     var abs_width = Math.abs(view_rect[0] - view_rect[2]);
     var abs_height = Math.abs(view_rect[1] - view_rect[3]) + 2;
-    var abs_left = self.Settings.canvas_rect.left + Math.min(view_rect[0], view_rect[2]);
-
-    // var abs_top = canvas_rect.top + Math.abs((view_rect[1] + view_rect[3])/2);
-    var abs_top = self.Settings.canvas_rect.top + Math.min((view_rect[1], view_rect[3]));
+    var abs_left = self.Settings.canvas.getBoundingClientRect().left + Math.min(view_rect[0], view_rect[2]);
+    var abs_top = self.Settings.canvas.getBoundingClientRect().top + Math.min(view_rect[1], view_rect[3]);
 
     var style = 'position: absolute;' +
       ' opacity: 0.50;' +
@@ -69,10 +72,12 @@ class PDFViewer {
     var e = document.createElement('div');
     e.setAttribute('style', style);
     self.Settings.hl_parent.appendChild(e);
+
+    self.LOG("%c %s", `color:black; background-color:${highlightColor}; padding:2px 4px;`, item.str)
   }
 
   highlightTexts(page) {
-    console.log("[highlightTexts]");
+    self.LOG("[highlightTexts]");
 
     // clear all highlight tags.
     while (self.Settings.hl_parent.firstChild) {
@@ -80,7 +85,7 @@ class PDFViewer {
     }
 
     page.getTextContent().then(function (textContent) {
-      console.log("[highlightTexts] getTextContent");
+      self.LOG("[highlightTexts] getTextContent");
       var viewport = page.getViewport({
         'scale': self.Settings.scale
       });
@@ -107,26 +112,25 @@ class PDFViewer {
           if (texts[i - p].str === self.Settings.passage_last_word_2) return true;
         }
       });
-      console.log("First Word index:", fw_idx, ", Last Word index:", lw_idx);
+      self.LOG("First Word index:", fw_idx, ", Last Word index:", lw_idx);
       if (!(fw_idx > 0 && lw_idx > 0)) return;
 
       // search by range
       for (let idx = fw_idx; idx <= lw_idx; idx++) {
         let item = texts[idx];
         self.renderHighlights(item, viewport);
-        console.log("%c highlight ", "color:black; background-color:yellow; padding:2px 4px;", `[${idx}]`, item.str)
       }
     });
   }
 
   // Page Rendering
   renderPage(num) {
-    console.log("[renderPage]", num);
+    self.LOG("[renderPage]", num);
     self.Settings.pageRendering = true;
 
     // Using promise to fetch the page
     self.Settings.pdfDoc.getPage(num).then(function (page) {
-      console.log("[renderPage] getPage");
+      self.LOG("[renderPage] getPage");
       var viewport = page.getViewport({
         scale: self.Settings.scale
       });
@@ -140,7 +144,8 @@ class PDFViewer {
 
       // Render PDF page into canvas context
       var renderContext = {
-        canvasContext: self.Settings.ctx,
+        // canvasContext: self.Settings.ctx,
+        canvasContext: self.Settings.canvas.getContext('2d'),
         viewport: viewport,
         transform: transform
       };
@@ -148,7 +153,7 @@ class PDFViewer {
       var renderTask = page.render(renderContext);
       // Wait for rendering to finish
       renderTask.promise.then(function () {
-        console.log("[renderPage] getPage render");
+        self.LOG("[renderPage] getPage render");
         // highlight
         self.highlightTexts(page);
 
@@ -172,7 +177,7 @@ class PDFViewer {
   }
 
   async setPDFdatas(pdf_filepath, pagenum, passage_text) {
-    console.log("[PDFViewrLib] setdatas");
+    self.LOG("[PDFViewrLib] setdatas");
     if (!pdf_filepath || !pagenum || !passage_text) return false;
 
     // get first and last words
@@ -190,7 +195,7 @@ class PDFViewer {
     self.Settings.passage_text = passage_text.replace(/<\/?em>/g, "");
 
     let ret = await pdfjsLib.getDocument(pdf_filepath).promise.then(function (pdfDoc_) {
-      console.log("[getDocument] done");
+      self.LOG("[getDocument] done");
       self.Settings.pdfDoc = pdfDoc_;
       self.renderPage(pagenum);
 
@@ -200,21 +205,12 @@ class PDFViewer {
   }
 
   init(canvas_tag, highlight_tag) {
-    console.log("[PDFViewrLib] init");
+    self.LOG("[PDFViewrLib] init");
     if (!canvas_tag || !highlight_tag) return false;
-
-    // set PDFjs worker
-    var { pdfjsLib } = globalThis;
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@4.5.136/build/pdf.worker.min.mjs';
 
     self.Settings.canvas = canvas_tag;
     self.Settings.hl_parent = highlight_tag;
-
-    self.Settings.ctx = canvas_tag.getContext('2d')
-    self.Settings.canvas_rect = canvas_tag.getBoundingClientRect();
-
     return true;
   }
-
 }
 export default PDFViewer;

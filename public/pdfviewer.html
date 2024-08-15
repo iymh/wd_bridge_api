@@ -14,6 +14,11 @@
         }
     </style>
 
+    <!-- CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@1.0.2/css/bulma.min.css">
+    <link href="https://use.fontawesome.com/releases/v6.6.0/css/all.css" rel="stylesheet">
+
+    <!-- PDFjs lib -->
     <script src="https://unpkg.com/pdfjs-dist@4.5.136/build/pdf.min.mjs" type="module"></script>
 
     <script type="module">
@@ -21,10 +26,13 @@
 
     window.onload = async ()=>{
         console.log("onload");
+        // set PDFjs worker
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@4.5.136/build/pdf.worker.min.mjs';
 
         // create pdf canvas viewer 1 instance
         let pdfv1 = new PDFVIEWER("viwer1");
         console.log("pdfv1", pdfv1);
+        pdfv1.Settings.isLog = true; // enable output console.log
 
         // set page controller
         document.getElementById('prev').addEventListener('click', ()=>{
@@ -45,6 +53,10 @@
             pdfv1.queueRenderPage(pageNum);
 
             document.getElementById('page_num').value = pageNum;
+        });
+        document.getElementById('reload').addEventListener('click', ()=>{
+            let pageNum = Number(document.getElementById('page_num').value); 
+            pdfv1.queueRenderPage(pageNum);
         });
         document.getElementById('page_num').addEventListener('change',()=>{
             let pageNum = Number(document.getElementById('page_num').value);
@@ -82,23 +94,32 @@
 </head>
 
 <body>
-    <div class="flexbox">
-        <span>PDF Highlight</span>
-    </div>
+    <div class="title flexbox">PDF Highlight</div>
 
-    <div class="flexbox" style="justify-content: space-around;">
-        <button id="prev" >Previous</button>
+    <!-- Controller -->
+    <div class="flexbox">
+
+        <button class="button is-small is-info is-light" id="prev" >
+            <span class="icon"><i class="fas fa-angle-left"></i></span>
+        </button>
         <div class="flexbox">
-            <input type="number" id="page_num" value="1" min="1" max="1"></input>
+            <input class="input is-small is-rounded m-1" type="number" id="page_num" value="1" min="1" max="1"></input>
             <span> / </span>
             <div id="page_count"></div>
+            <button class="button is-small is-success is-light m-1" id="reload">
+                <span class="icon"><i class="fas fa-rotate-right"></i></span>
+            </button>
         </div>
-        <button id="next">Next</button>
+        <button class="button is-small is-info is-light m-1" id="next">
+            <span class="icon"><i class="fas fa-angle-right"></i></span>
+        </button>
     </div>
 
-    <hr />
-    <div id="highlight_parent"></div>
-    <canvas id="pdf-canvas"></canvas>
+    <!--PDF Area -->
+    <div class="flexbox">
+        <div id="highlight_parent"></div>
+        <canvas id="pdf-canvas"></canvas>
+    </div>
 
 </body>
 </html>
