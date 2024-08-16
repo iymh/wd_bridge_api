@@ -28,8 +28,9 @@ class PDFViewer {
     em_lists: [],
   }
 
+  // console.log wrapper
   LOG(...args) {
-    if (self.Settings.isLog) console.log(...args);
+    if (self.Settings.isLog) console.log(...args, `(${self.Settings.name})`);
   }
 
   checkContainInEmphasisList(txt) {
@@ -73,7 +74,7 @@ class PDFViewer {
     e.setAttribute('style', style);
     self.Settings.hl_parent.appendChild(e);
 
-    self.LOG("%c %s", `color:black; background-color:${highlightColor}; padding:2px 4px;`, item.str)
+    self.LOG("[highlightTexts] %c%s", `color:black; background-color:${highlightColor}; padding:2px 4px;`, item.str)
   }
 
   highlightTexts(page) {
@@ -112,7 +113,7 @@ class PDFViewer {
           if (texts[i - p].str === self.Settings.passage_last_word_2) return true;
         }
       });
-      self.LOG("First Word index:", fw_idx, ", Last Word index:", lw_idx);
+      self.LOG("[highlightTexts] First Word index:", fw_idx, ", Last Word index:", lw_idx);
       if (!(fw_idx > 0 && lw_idx > 0)) return;
 
       // search by range
@@ -144,7 +145,6 @@ class PDFViewer {
 
       // Render PDF page into canvas context
       var renderContext = {
-        // canvasContext: self.Settings.ctx,
         canvasContext: self.Settings.canvas.getContext('2d'),
         viewport: viewport,
         transform: transform
@@ -176,40 +176,41 @@ class PDFViewer {
     }
   }
 
-  async setPDFdatas(pdf_filepath, pagenum, passage_text) {
-    self.LOG("[PDFViewrLib] setdatas");
-    if (!pdf_filepath || !pagenum || !passage_text) return false;
+  async setPDFdatas(params) {
+    self.LOG("[setPDFdatas]");
+    if (!params.pdf_filepath || !params.page_num || !params.passage_text) return false;
 
     // get first and last words
-    let passage_splits = passage_text.split(" "); // split by "SP"
+    let passage_splits = params.passage_text.split(" "); // split by "SP"
     self.Settings.passage_first_word_1 = passage_splits[0];
     self.Settings.passage_first_word_2 = passage_splits[1];
     self.Settings.passage_last_word_1 = passage_splits[passage_splits.length - 1];
     self.Settings.passage_last_word_2 = passage_splits[passage_splits.length - 2];
 
     // get emphasis word　list
-    let em_lists = passage_text.match(/<em>(.*?)<\/em>/g).map(item => item.replace(/<\/?em>/g, ""));
+    let em_lists = params.passage_text.match(/<em>(.*?)<\/em>/g).map(item => item.replace(/<\/?em>/g, ""));
     self.Settings.em_lists = [...new Set(em_lists)]; // remove duplicates
+    self.LOG("[setPDFdatas] emphasis list", self.Settings.em_lists);
 
     // remove emphasis tags
-    self.Settings.passage_text = passage_text.replace(/<\/?em>/g, "");
+    self.Settings.passage_text = params.passage_text.replace(/<\/?em>/g, "");
 
-    let ret = await pdfjsLib.getDocument(pdf_filepath).promise.then(function (pdfDoc_) {
-      self.LOG("[getDocument] done");
+    let ret = await pdfjsLib.getDocument(params.pdf_filepath).promise.then(function (pdfDoc_) {
+      self.LOG("[setPDFdatas] getDocument");
       self.Settings.pdfDoc = pdfDoc_;
-      self.renderPage(pagenum);
+      self.renderPage(params.page_num);
 
       return ({ "max": pdfDoc_.numPages });
     });
     return ret;
   }
 
-  init(canvas_tag, highlight_tag) {
-    self.LOG("[PDFViewrLib] init");
-    if (!canvas_tag || !highlight_tag) return false;
+  init(params) {
+    self.LOG("[init]");
+    if (!params.canvas_tag || !params.highlight_tag) return false;
 
-    self.Settings.canvas = canvas_tag;
-    self.Settings.hl_parent = highlight_tag;
+    self.Settings.canvas = params.canvas_tag;
+    self.Settings.hl_parent = params.highlight_tag;
     return true;
   }
 }
