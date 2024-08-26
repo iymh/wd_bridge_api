@@ -1,3 +1,12 @@
+// console.log wrapper
+const isLog = true;
+function LOG(...args) {
+   if (isLog) console.log(...args);
+}
+// console.log color
+const C_RED = '\x1B[31m';
+const C_RST = '\x1B[0m';
+
 const AUTHINFO = {
    username:"test",
    password:"test"
@@ -7,7 +16,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const basicAuth = require('basic-auth-connect');
 const cors = require('cors');
-require('dotenv').config({ debug:true });
+require('dotenv').config({ debug: isLog });
 
 // File upload function
 const fs = require('fs');
@@ -16,6 +25,7 @@ const upload = multer({dest: 'tmp/'});
 
 const DiscoveryV2 = require('ibm-watson/discovery/v2');
 const { IamAuthenticator } =require('ibm-watson/auth');
+const WD_VARSION = '2023-03-31';
 
 var server = express();
 server
@@ -54,11 +64,11 @@ server
       }
 
       const discovery = new DiscoveryV2({
-         version: '{version}',
+         // version: '{version}',
          authenticator: new IamAuthenticator({
             apikey: process.env.API_KEY,
          }),
-         version: '2020-08-30',
+         version: WD_VARSION,
          serviceUrl: process.env.API_BASE_URL,
       });
 
@@ -66,11 +76,11 @@ server
          case "query":
             discovery.query(body.params)
                .then(response => {
-                  // console.log(JSON.stringify(response.result, null, 2));
+                  // LOG(`${C_RED}${body.api}${C_RST}\n`, JSON.stringify(response.result, null, 2));
                   res.json(response.result);
                })
                .catch(err => {
-                  console.log('error:', err);
+                  LOG('error:', err);
                   res.status(500).send({"error": "Failed Watson Discovery query."});
                });
             break;
@@ -78,11 +88,11 @@ server
          case "listProjects":
             discovery.listProjects()
                .then(response => {
-                  console.log(JSON.stringify(response.result, null, 2));
+                  LOG(`${C_RED}${body.api}${C_RST}\n`, JSON.stringify(response.result, null, 2));
                   res.json(response.result);
                })
                .catch(err => {
-                  console.log('error:', err);
+                  LOG('listProjects error:', err);
                   res.status(500).send({"error": "Failed Watson Discovery listProjects."});
                });
             break;
@@ -90,11 +100,11 @@ server
          case "listCollections":
             discovery.listCollections(body.params)
                .then(response => {
-                  console.log(JSON.stringify(response.result, null, 2));
+                  LOG(`${C_RED}${body.api}${C_RST}\n`, JSON.stringify(response.result, null, 2));
                   res.json(response.result);
                })
                .catch(err => {
-                  console.log('error:', err);
+                  LOG('error:', err);
                   res.status(500).send({"error": "Failed Watson Discovery listCollections."});
                });
             break;
@@ -102,11 +112,11 @@ server
          case "listTrainingQueries":
             discovery.listTrainingQueries(body.params)
                .then(response => {
-                  console.log(JSON.stringify(response.result, null, 2));
+                  LOG(`${C_RED}${body.api}${C_RST}\n`, JSON.stringify(response.result, null, 2));
                   res.json(response.result);
                })
                .catch(err => {
-                  console.log('error:', err);
+                  LOG('error:', err);
                   res.status(500).send({"error": "Failed Watson Discovery listTrainingQueries."});
                });
             break;
@@ -114,11 +124,11 @@ server
          case "createTrainingQuery":
             discovery.createTrainingQuery(body.params)
                .then(response => {
-                  console.log(JSON.stringify(response.result, null, 2));
+                  LOG(`${C_RED}${body.api}${C_RST}\n`, JSON.stringify(response.result, null, 2));
                   res.json(response.result);
                })
                .catch(err => {
-                  console.log('error:', err);
+                  LOG('error:', err);
                   res.status(500).send({"error": "Failed Watson Discovery createTrainingQuery."});
                });
             break;
@@ -126,11 +136,11 @@ server
          case "getTrainingQuery":
             discovery.getTrainingQuery(body.params)
                .then(response => {
-                  console.log(JSON.stringify(response.result, null, 2));
+                  LOG(`${C_RED}${body.api}${C_RST}\n`, JSON.stringify(response.result, null, 2));
                   res.json(response.result);
                })
                .catch(err => {
-                  console.log('error:', err);
+                  LOG('error:', err);
                   res.status(500).send({"error": "Failed Watson Discovery getTrainingQuery."});
                });
             break;
@@ -138,39 +148,17 @@ server
          case "updateTrainingQuery":
             discovery.updateTrainingQuery(body.params)
                .then(response => {
-                  console.log(JSON.stringify(response.result, null, 2));
+                  LOG(`${C_RED}${body.api}${C_RST}\n`, JSON.stringify(response.result, null, 2));
                   res.json(response.result);
                })
                .catch(err => {
-                  console.log('error:', err);
+                  LOG('error:', err);
                   res.status(500).send({"error": "Failed Watson Discovery updateTrainingQuery."});
                });
             break;
 
-            // check upload file
-            let file = req.file;
-            if (file) {
-               console.log("file:" + file.originalname);
-               body.params.file = fs.createReadStream(file.path);
-            } else {
-               console.log('error: no params');
-               res.status(500).send({"error": "Failed Watson Discovery addDocument. no params."});
-               return;
-            }
-
-            discovery.addDocument(body.params)
-               .then(response => {
-                  // console.log(JSON.stringify(response.result, null, 2));
-                  res.json(response.result);
-               })
-               .catch(err => {
-                  console.log('error:', err);
-                  res.status(500).send({"error": "Failed Watson Discovery addDocument."});
-               });
-            break;
-
          default:
-            console.log("Unsupported api!");
+            LOG(`${C_RED}${body.api}${C_RST}\n`, "Unsupported api!");
             res.status(500).send({"error": "Unsupported api!"});
             break;
       }
@@ -180,17 +168,17 @@ server
       // Path params
       let api = req.params.api;
       if (!api) {
-         console.log('error: no params api');
+         LOG('error: no params api');
          res.status(500).send({"error": "Failed Watson Discovery addDocument."});
       }
       let pid = req.params.pid;
       if (!pid) {
-         console.log('error: no params projectId');
+         LOG('error: no params projectId');
          res.status(500).send({"error": "Failed Watson Discovery addDocument."});
       }
       let cid = req.params.cid;
       if (!cid) {
-         console.log('error: no params collectionId');
+         LOG('error: no params collectionId');
          res.status(500).send({"error": "Failed Watson Discovery addDocument."});
       }
 
@@ -202,20 +190,20 @@ server
       }
 
       const discovery = new DiscoveryV2({
-         version: '{version}',
+         // version: '{version}',
          authenticator: new IamAuthenticator({
             apikey: process.env.API_KEY,
          }),
-         version: '2020-08-30',
+         version: WD_VARSION,
          serviceUrl: process.env.API_BASE_URL,
       });
 
       // check upload file
       let file = req.file;
       if (file) {
-         console.log("file:" + file.originalname);
+         LOG("file:" + file.originalname);
       } else {
-         console.log('error: no params');
+         LOG('error: no params');
          res.status(500).send({"error": "Failed Watson Discovery addDocument. no params."});
          return;
       }
@@ -232,17 +220,17 @@ server
 
             discovery.addDocument(addParams)
                .then(response => {
-                  // console.log(JSON.stringify(response.result, null, 2));
+                  LOG(`${C_RED}${api}${C_RST}\n`, JSON.stringify(response.result, null, 2));
                   res.json(response.result);
                })
                .catch(err => {
-                  console.log('error:', err);
+                  LOG('error:', err);
                   res.status(500).send({"error": "Failed Watson Discovery addDocument."});
                });
             break;
 
          default:
-            console.log("Unsupported api!");
+            LOG(`${C_RED}${api}${C_RST}\n`, "Unsupported api!");
             res.status(500).send({"error": "Unsupported api!"});
             break;
       }
@@ -251,6 +239,6 @@ server
 const port = process.env.PORT || 8080;
 server.listen(port, () => {
   // eslint-disable-next-line no-console
-  console.log('Watson Discovery Server running on port: %d', port);
+  LOG(`Watson Discovery Server running on port: ${C_RED}${port}${C_RST}`);
 });
 
