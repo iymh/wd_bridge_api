@@ -1,0 +1,197 @@
+<html>
+<head>
+    <title>Using PDFViewr Sample</title>
+    <style>
+        .flexbox {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #ipt_filepath, #txa_passages {
+            width: 30rem;
+        }
+        #ipt_target_pagenum {
+            width: 5rem;
+        }
+
+        .pv_ifm {
+            transition: .5s;
+            width: 100%;
+            height: 600px;
+
+            border: 1px solid black;
+        }
+
+    </style>
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@1.0.2/css/bulma.min.css">
+    <link href="https://use.fontawesome.com/releases/v6.6.0/css/all.css" rel="stylesheet">
+
+    <!-- PDFjs lib -->
+    <script src="https://unpkg.com/pdfjs-dist@4.5.136/build/pdf.min.mjs" type="module"></script>
+
+    <script type="module">
+    var inline_viewer = null;
+
+    window.onload = async ()=>{
+        console.log("onload");
+
+        function renderPage(page) {
+            console.log("renderPage", page);
+            if (!inline_viewer) return;
+            inline_viewer.postMessage({
+                "api":"renderPage",
+                "params":{
+                    "targetPageNum": page,
+                }
+            }, "*");
+        }
+
+        // set page controller
+        document.getElementById('btn_prev').addEventListener('click', ()=>{
+            let pageNum = Number(document.getElementById('ipt_page_num').value);
+            if (pageNum <= 1) return; 
+            pageNum--;
+            renderPage(pageNum);
+
+            document.getElementById('ipt_page_num').value = pageNum;
+        });
+        document.getElementById('btn_next').addEventListener('click', ()=>{
+            let pageNum = Number(document.getElementById('ipt_page_num').value);
+            let pageCount = Number(document.getElementById('page_count').value);
+            if (pageNum >= pageCount) return;
+            pageNum++;
+            renderPage(pageNum);
+
+            document.getElementById('ipt_page_num').value = pageNum;
+        });
+
+        function showCurrentPage() {
+            let pageNum = Number(document.getElementById('ipt_page_num').value); 
+            renderPage(pageNum);
+
+        }
+        document.getElementById('btn_reload').addEventListener('click', showCurrentPage);
+        document.getElementById('ipt_page_num').addEventListener('change',showCurrentPage);
+
+        // set Watson Discovery Infos 
+        function setWDInfos() {
+            console.log("setWDInfos");
+            var url = document.getElementById('ipt_filepath').value;
+            var targetPageNum = Number(document.getElementById('ipt_target_pagenum').value);
+            var passage_text = document.getElementById('txa_passages').textContent;
+            if (!url || !targetPageNum || !passage_text) return;
+            document.getElementById('ipt_page_num').value = targetPageNum;
+
+            if (!inline_viewer) return;
+            inline_viewer.postMessage({
+                "api":"setWDInfos",
+                "params":{
+                    "url": url,
+                    "targetPageNum": targetPageNum,
+                    "passage_text": passage_text,
+                }
+            }, "*");
+
+            function receiveMessage(evt) {
+                console.log("[receiveMessage]: ", evt.data.type);
+                if (evt.data.type === "ret_setWDInfos") {
+                    console.log("ret_setWDInfos", evt);
+                    let rdata = evt.data?.data?.ret;
+                    if (rdata && rdata.max) {
+                        document.getElementById('page_count').textContent = rdata.max;
+                        document.getElementById('ipt_page_num').setAttribute("max", rdata.max);
+                    }
+                    window.removeEventListener("message",receiveMessage);
+                }
+            };
+            window.addEventListener("message", receiveMessage);
+
+        }
+        document.getElementById('btn_send').addEventListener('click', setWDInfos);
+
+        function previewFile() {
+            console.log("[previewFile]");
+            let ifmid = `#ifm`;
+            let ifmelm = document.querySelector(`${ifmid} > .pv_ifm`);
+            if (!ifmelm) return;
+
+            ifmelm.src = "pdfviewer.html";
+
+            ifmelm.onload = (data) =>{
+                console.log("iframe onload", data);
+                inline_viewer = ifmelm.contentWindow;
+                setWDInfos();
+            }
+
+        }
+        
+        // init
+        previewFile();
+    }
+    </script>
+</head>
+
+<body>
+    <div class="title flexbox">Using PDF Viewer</div>
+
+    <div class="card">
+        <div class="flexbox">
+            <p class="control has-icons-left m-1">
+                <input id="ipt_filepath" type="url" class="input is-small" 
+                    value="./IBM SPSS Statistics Base_1_compressed.pdf" placeholder="File path"/>
+                <span class="icon is-small is-left"><i class="fas fa-file-pdf"></i></span>
+            </p>
+
+            <p class="control has-icons-left m-1">
+                <input id="ipt_target_pagenum" type="number" class="input is-small"
+                    min="1" max="300" value="9" placeholder="Target Page"/>
+                <span class="icon is-small is-left"><i class="fas fa-pager"></i></span>
+            </p>
+        </div>
+
+        <div class="flexbox m-1">
+            <p class="control has-icons-left m-1" style="flex-grow:1;">
+                <textarea id="txa_passages" class="textarea is-small">独立したサンプルの t 検定 独立サンプルの<em>分析</em>では、観測データが 2 つの独立サンプルを含みます。 この場合の各サンプルのデ ータに対する前提は、独立同一分布であり、平均値と<em>分散</em>が一定である正規分布に従い、2 つの平均値 の差に関する統計的推論が引き出されることです。 <em>一</em><em>元</em><em>配置</em><em>分散</em><em>分析</em> <em>分散</em><em>分析</em> (ANOVA) は、複数の母集団 (多くの場合は正規分布であると想定します) の平均値を推定する ための統計手法です。 <em>一</em><em>元</em><em>配置</em><em>分散</em><em>分析</em>はよく使用される<em>分散</em><em>分析</em>であり、2 サンプルの t 検定の拡張 です。</textarea>
+                <span class="icon is-small is-left"><i class="fas fa-magnifying-glass"></i></span>
+            </p>
+        </div>
+
+        <div class="flexbox m-1">
+            <button class="button is-small is-link is-light" id="btn_send" >
+                <span class="icon"><i class="fas fa-file-import"></i></span>
+                <span>Attach Data</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Controller -->
+    <div class="flexbox">
+        <button class="button is-small is-info is-light" id="btn_prev" >
+            <span class="icon"><i class="fas fa-angle-left"></i></span>
+        </button>
+        <div class="flexbox">
+            <input id="ipt_page_num" class="input is-small is-rounded m-1" type="number"
+                 value="1" min="1" max="1" placeholder="Page Number"></input>
+            <span> / </span>
+            <div id="page_count"></div>
+            <button class="button is-small is-success is-light m-1" id="btn_reload">
+                <span class="icon"><i class="fas fa-rotate-right"></i></span>
+            </button>
+        </div>
+        <button class="button is-small is-info is-light m-1" id="btn_next">
+            <span class="icon"><i class="fas fa-angle-right"></i></span>
+        </button>
+    </div>
+
+    <!-- PDF viewer -->
+    <div class="ma-2">
+        <div id="ifm" class="hide">
+            <iframe class="pv_ifm" src="" frameborder="1"></iframe>
+        </div>
+    </div>
+
+</body>
+</html>

@@ -1,169 +1,75 @@
 <html>
 <head>
-    <title>Highlight Sample</title>
+    <title>PDF Viewer</title>
     <style>
-        .flexbox {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        #ipt_filepath, #txa_passages {
-            width: 30rem;
-        }
-        #ipt_target_pagenum {
-            width: 5rem;
-        }
         #pdf-canvas {
-            border: 1px solid black;
             direction: ltr;
         }
     </style>
-
-    <!-- CSS -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@1.0.2/css/bulma.min.css">
-    <link href="https://use.fontawesome.com/releases/v6.6.0/css/all.css" rel="stylesheet">
 
     <!-- PDFjs lib -->
     <script src="https://unpkg.com/pdfjs-dist@4.5.136/build/pdf.min.mjs" type="module"></script>
 
     <script type="module">
     import PDFVIEWER from "./pdfviewr_lib.js";
+    var pdfv = null;
 
     window.onload = async ()=>{
-        console.log("onload");
+        console.log("[PDFViewer] onload");
         // set PDFjs worker
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@4.5.136/build/pdf.worker.min.mjs';
 
         // create pdf canvas viewer 1 instance
-        let pdfv1 = new PDFVIEWER("viewer1");
-        console.log("pdfv1", pdfv1);
-        pdfv1.Settings.isLog = true; // enable output console.log
-
-        // set page controller
-        document.getElementById('btn_prev').addEventListener('click', ()=>{
-            let pageNum = Number(document.getElementById('ipt_page_num').value);
-            if (pageNum <= 1) return;
- 
-            pageNum--;
-            pdfv1.queueRenderPage(pageNum);
-
-            document.getElementById('ipt_page_num').value = pageNum;
-        });
-        document.getElementById('btn_next').addEventListener('click', ()=>{
-            let pageNum = Number(document.getElementById('ipt_page_num').value);
-            let pageCount = Number(document.getElementById('page_count').value);
-            if (pageNum >= pageCount) return;
- 
-            pageNum++;
-            pdfv1.queueRenderPage(pageNum);
-
-            document.getElementById('ipt_page_num').value = pageNum;
-        });
-        document.getElementById('btn_reload').addEventListener('click', ()=>{
-            let pageNum = Number(document.getElementById('ipt_page_num').value); 
-            pdfv1.queueRenderPage(pageNum);
-        });
-        document.getElementById('ipt_page_num').addEventListener('change',()=>{
-            let pageNum = Number(document.getElementById('ipt_page_num').value);
-            pdfv1.queueRenderPage(pageNum);
-        });
-
+        pdfv = new PDFVIEWER("viewer1");
+        console.log("[PDFViewer] pdfv", pdfv);
+        pdfv.Settings.isLog = true; // enable output console.log
 
         // set html tags
-        let ret = pdfv1.init({
+        let ret = pdfv.init({
             "canvas_tag": document.getElementById('pdf-canvas'),
             "highlight_tag": document.getElementById('highlight_parent')
         });
-        console.log("init", ret);
-        if (ret) {
-            setWDInfos();
-        }
-
-        async function setWDInfos() {
-            console.log("setWDInfos");
-            // set Watson Discovery Results 
-            var url = document.getElementById('ipt_filepath').value;
-            var targetPageNum = Number(document.getElementById('ipt_target_pagenum').value);
-            var passage_text = document.getElementById('txa_passages').textContent;
-            if (!url || !targetPageNum || !passage_text) return;
-            document.getElementById('ipt_page_num').value = targetPageNum;
-
-            // set PDF infos
-            ret = await pdfv1.setPDFdatas({
-                "pdf_filepath": url,
-                "page_num": targetPageNum,
-                "passage_text": passage_text
-            });
-            console.log("setPDFdatas", ret);
-            if (ret && ret.max) {
-                document.getElementById('page_count').textContent = ret.max;
-                document.getElementById('ipt_page_num').setAttribute("max", ret.max);
-            }
-        }
-        document.getElementById('btn_send').addEventListener('click', setWDInfos);
+        console.log("[PDFViewer] init", ret);
     }
+
+    window.addEventListener("message", async (response)=> {
+        console.log("[PDFViewer] Received Data from Parent", response.data);
+        if (!pdfv) return;
+
+        let params = response.data.params;
+        switch (response.data.api) {
+            case "setWDInfos":
+                if (params.url && params.targetPageNum && params.passage_text) {
+                    // set PDF infos
+                    let ret = await pdfv.setPDFdatas({
+                        "pdf_filepath": params.url,
+                        "page_num": params.targetPageNum,
+                        "passage_text": params.passage_text
+                    });
+                    console.log("[PDFViewer] setPDFdatas", ret);
+                    
+                    // send Result to Parent
+                    window.parent.postMessage({ type:"ret_setWDInfos", data:{ret} });
+                }
+                break;
+            case "renderPage":
+                if (params.targetPageNum) {
+                    console.log("[PDFViewer] renderPage", params.targetPageNum);
+                    pdfv.queueRenderPage(params.targetPageNum);
+                }
+                break;
+            default:
+                break;
+        }
+
+
+    });
+
     </script>
 </head>
 
 <body>
-    <div class="title flexbox">PDF Highlight</div>
-
-    <div class="card">
-        <div class="flexbox">
-            <p class="control has-icons-left m-1">
-                <input id="ipt_filepath" type="url" class="input is-small" 
-                    value="./IBM SPSS Statistics Base_1_compressed.pdf" placeholder="File path"/>
-                <span class="icon is-small is-left"><i class="fas fa-file-pdf"></i></span>
-            </p>
-
-            <p class="control has-icons-left m-1">
-                <input id="ipt_target_pagenum" type="number" class="input is-small"
-                    min="1" max="300" value="9" placeholder="Target Page"/>
-                <span class="icon is-small is-left"><i class="fas fa-pager"></i></span>
-            </p>
-        </div>
-
-        <div class="flexbox m-1">
-            <p class="control has-icons-left m-1" style="flex-grow:1;">
-                <textarea id="txa_passages" class="textarea is-small">独立したサンプルの t 検定 独立サンプルの<em>分析</em>では、観測データが 2 つの独立サンプルを含みます。 この場合の各サンプルのデ ータに対する前提は、独立同一分布であり、平均値と<em>分散</em>が一定である正規分布に従い、2 つの平均値 の差に関する統計的推論が引き出されることです。 <em>一</em><em>元</em><em>配置</em><em>分散</em><em>分析</em> <em>分散</em><em>分析</em> (ANOVA) は、複数の母集団 (多くの場合は正規分布であると想定します) の平均値を推定する ための統計手法です。 <em>一</em><em>元</em><em>配置</em><em>分散</em><em>分析</em>はよく使用される<em>分散</em><em>分析</em>であり、2 サンプルの t 検定の拡張 です。</textarea>
-                <span class="icon is-small is-left"><i class="fas fa-magnifying-glass"></i></span>
-            </p>
-        </div>
-
-        <div class="flexbox m-1">
-            <button class="button is-small is-link is-light" id="btn_send" >
-                <span class="icon"><i class="fas fa-file-import"></i></span>
-                <span>Attach Data</span>
-            </button>
-        </div>
-    </div>
-
-    <!-- Controller -->
-    <div class="flexbox">
-
-        <button class="button is-small is-info is-light" id="btn_prev" >
-            <span class="icon"><i class="fas fa-angle-left"></i></span>
-        </button>
-        <div class="flexbox">
-            <input id="ipt_page_num" class="input is-small is-rounded m-1" type="number"
-                 value="1" min="1" max="1" placeholder="Page Number"></input>
-            <span> / </span>
-            <div id="page_count"></div>
-            <button class="button is-small is-success is-light m-1" id="btn_reload">
-                <span class="icon"><i class="fas fa-rotate-right"></i></span>
-            </button>
-        </div>
-        <button class="button is-small is-info is-light m-1" id="btn_next">
-            <span class="icon"><i class="fas fa-angle-right"></i></span>
-        </button>
-    </div>
-
-    <!--PDF Area -->
-    <div class="flexbox">
-        <div id="highlight_parent"></div>
-        <canvas id="pdf-canvas"></canvas>
-    </div>
-
+    <div id="highlight_parent"></div>
+    <canvas id="pdf-canvas"></canvas>
 </body>
 </html>
