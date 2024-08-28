@@ -7,10 +7,10 @@ function LOG(...args) {
 const C_RED = '\x1B[31m';
 const C_RST = '\x1B[0m';
 
-const AUTHINFO = {
-   username:"test",
-   password:"test"
-};
+// const AUTHINFO = {
+//    username:"test",
+//    password:"test"
+// };
 
 const express = require('express');
 const bodyParser = require('body-parser');
@@ -39,13 +39,57 @@ server
    .use(cors())
 
    // Basic Auth
-   .use(basicAuth(
-      AUTHINFO.username,
-      AUTHINFO.password 
-   ))
+   // .use(basicAuth(
+   //    AUTHINFO.username,
+   //    AUTHINFO.password 
+   // ))
 
    .get('/', function (req, res) {
       res.send('watson discovery bridge!')
+   })
+
+   // Internal API
+   .get('/:pid/:cid/:did', async (req, res) => {
+      // Path params
+      let pid = req.params.pid;
+      if (!pid) {
+         LOG('error: no params projectId');
+         res.status(500).send({"error": "Failed Watson Discovery Original."});
+      }
+      let cid = req.params.cid;
+      if (!cid) {
+         LOG('error: no params collectionId');
+         res.status(500).send({"error": "Failed Watson Discovery Original."});
+      }
+      let did = req.params.did;
+      if (!did) {
+         LOG('error: no params collectionId');
+         res.status(500).send({"error": "Failed Watson Discovery Original."});
+      }
+      LOG("original", pid, cid, did);
+
+      // check Discovery env
+      if (typeof process.env.API_KEY == 'undefined') {
+         console.error('Error: "API_KEY" is not set.');
+         console.error('Please consider adding a .env file with API_KEY.');
+         res.status(500).send({"error": "Failed Watson Discovery original path."});
+      }
+
+      // https://api.jp-tok.discovery.watson.cloud.ibm.com/instances/0641b7ee-c68f-45b6-82e5-bdad10f1fd60
+      // /v2/internal/projects/db21700c-ed41-4310-bb9b-e605fd1e7823/collections/f7c46524-7139-7896-0000-0190ee1d3013/documents/f3f4084c0969a6e4f2309873df97ba1c/original
+      let url = `${process.env.API_BASE_URL}/v2/internal/projects/${pid}/collections/${cid}/documents/${did}/original`;
+      console.log(url);
+
+      let response = await fetch(url, {
+         method:'GET', 
+         headers: {'Authorization': 'Basic ' + btoa(`apikey:${process.env.API_KEY}`)}});
+      let data = await response.arrayBuffer();
+      console.log(data);
+      if (data) {
+         res.status(200).send(new Buffer.from(data, 'binary'));
+      } else {
+         res.status(500).send({"error": "Failed Watson Discovery original path."});
+      }
    })
 
    .post('/api', async (req, res) => {

@@ -27,11 +27,25 @@
     .wdt12 {
       width: 12rem;
     }
+    .ws-preline {
+      white-space: pre-line;
+    }
+
+    .hide {
+      display: none;
+    }
 
     /* for highlight in discovery result. */
     em {
       font-weight: bold;
       color: red;
+    }
+
+    /* PDF preview */
+    .pv_ifm {
+      transition: .5s;
+      width: 100%;
+      height: 50vh;
     }
   </style>
 </head>
@@ -56,7 +70,7 @@
       </v-snackbar>
 
       <!-- Discovery Options Dialog -->
-      <v-dialog id="pr_dialog" v-model="dc_param_dialog">
+      <v-dialog v-model="dc_param_dialog">
         <v-card class="">
           <v-card-title>
             <span class="text-h5">Query Parameters</span>
@@ -244,6 +258,22 @@
                           <div v-if="(item.metadata.source && item.metadata.source.url && item.extracted_metadata.filename)" class="text-h6">
                             <a :href="item.metadata.source.url" target="_blank">{{ item.extracted_metadata.filename }}</a>
                           </div>
+                          <div v-else　class="flex-grow-1 d-flex align-center">
+                            <div class="flex-grow-1">{{ item.extracted_metadata.filename }}</div>
+                            <v-btn v-if="item.extracted_metadata.file_type==='pdf'"
+                              color="primary"
+                              icon elevation="1"
+                              @click="previewFile(item)">
+                              <v-icon>mdi-file-find</v-icon>
+                            </v-btn>
+                          </div>
+                        </div>
+
+                        <!-- PDF viewer -->
+                        <div v-if="item.extracted_metadata.file_type==='pdf'" class="ma-2">
+                          <div :id="'ifm-' + item.no" class="hide">
+                            <iframe class="pv_ifm" src="" frameborder="1"></iframe>
+                          </div>
                         </div>
 
                         <div class="ma-2">
@@ -259,12 +289,44 @@
                             <div class="wdt10 info text-center" v-if="item.result_metadata.confidence">検索スコア: {{ `${(item.result_metadata.confidence *100).toFixed(1)}` }}</div>
                           </div>
 
-                          <!-- Passages -->
-                          <div class="" v-if="item.document_passages.length > 0" v-html="item.document_passages[0].passage_text"></div>
+                          <!-- Result Texts -->
+                          <v-expansion-panels>
+                            <v-expansion-panel>
+                              <v-expansion-panel-header color="info--text">
+                                <div class="wdt12">Text</div>
+                              </v-expansion-panel-header>
+                              <v-expansion-panel-content>
+                                <div class="" v-if="item.document_passages.length > 0" v-html="item.document_passages[0].passage_text"></div>
+                              </v-expansion-panel-content>
+                            </v-expansion-panel>
 
-                          <!-- Customize field -->
-                          <div class="" v-if="item.answer && item.answer.length > 0">A: {{ item.answer }}</div>
-                          <div class="warning--text" v-if="item.question && item.question.length > 0">Q: {{ item.question }}</div>
+                            <v-expansion-panel>
+                              <v-expansion-panel-header color="info--text">
+                                <div class="wdt12">Question</div>
+                              </v-expansion-panel-header>
+                              <v-expansion-panel-content>
+                                <div class="" v-if="item.question && item.question.length > 0">{{ item.question }}</div>
+                              </v-expansion-panel-content>
+                            </v-expansion-panel>
+
+                            <v-expansion-panel>
+                              <v-expansion-panel-header color="info--text">
+                                <div class="wdt12">Answer</div>
+                              </v-expansion-panel-header>
+                              <v-expansion-panel-content>
+                                <div class="ws-preline" v-if="item.answer && item.answer.length > 0">{{ formatTexts(item.answer) }}</div>
+                              </v-expansion-panel-content>
+                            </v-expansion-panel>
+
+                            <v-expansion-panel>
+                              <v-expansion-panel-header color="info--text">
+                                <div class="wdt12">Method</div>
+                              </v-expansion-panel-header>
+                              <v-expansion-panel-content>
+                                <div class="ws-preline" v-if="item.method && item.method.length > 0">{{ formatTexts(item.method) }}</div>
+                              </v-expansion-panel-content>
+                            </v-expansion-panel>
+                          </v-expansion-panels>
 
                           <div class="d-flex justify-sm-space-between">
                             <!-- Collection Name -->
@@ -296,7 +358,13 @@
 
   <script src="https://cdn.jsdelivr.net/npm/vue@2.x/dist/vue.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.js"></script>
-  <script>
+
+  <!-- PDFjs lib -->
+  <!-- <script src="https://unpkg.com/pdfjs-dist@4.5.136/build/pdf.min.mjs" type="module"></script> -->
+
+  <script type="module">
+    import PDFVIEWER from "./pdfviewr_lib.js";
+
     const LOCAL_URL = "./";
 
     new Vue({
@@ -311,6 +379,10 @@
           type: "primary",
           text:""
         },
+        
+        // PDF viewer
+        // pdfviewer_dialog: false,
+        // pdfv: null,
 
         // Discovery API
         dc_param_dialog: false,
@@ -320,12 +392,17 @@
           "filter": "",
           "passages":{
               "enabled":true,
-              "find_answers":false,
-              "per_document":true
+              "find_answers": true,
+              "per_document":true,
+              "fields":[] // all fields
           },
-          "count":10,
-          // "aggregation":"",
-          "_return":[],
+          "count":3,
+          "aggregation":"",
+          "_return":[
+            // "metadata","result_metadata",
+            // "extracted_metadata.filename","extracted_metadata.file_type","extracted_metadata.title",
+            // "answer","question","method", // add custom fields
+          ],
           // "naturalLanguageQuery":""
         }),
 
@@ -341,11 +418,11 @@
         dc_collections: [],
         dc_collections_selected: [],
 
-        dc_inputnlq: "Watson",
+        dc_inputnlq: "",
         dc_inputnlq_items:[
-          "Watson", "ライトプラン"
+          "t検定の方法は？", "一元配置分散分析とは？", 
         ],
-        dc_isAF: false,
+        dc_isAF: true,
 
         dc_tbl_loading: false,
         dc_outputjsons: [],
@@ -422,11 +499,108 @@
             return null;
           }
         },
+        
+        formatTexts(text_arry) {
+          let ret_text = "";
+          if (text_arry.length > 0) {
+            // convert array to texts.
+            if (Array.isArray(text_arry)) {
+              ret_text = text_arry.join();
+            }
+
+            // add LF
+            ret_text = ret_text.replace(/。/g, "。\n");
+          }
+          return ret_text;
+        },
 
         // components
         showToast(msg) {
           this.toast.text = msg;
           this.toast.show = true;
+        },
+
+        previewFile(item) {
+          console.log("[previewFile]", item?.extracted_metadata?.filename);
+          let ifmid = `#ifm-${item.no}`;
+          let elm = document.querySelector(ifmid);
+          if (!elm) return;
+          let clist = elm.classList;
+          if (!clist) return;
+
+          let ifmelm = document.querySelector(`${ifmid} > .pv_ifm`);
+          if (!ifmelm) return;
+
+          if (clist.contains("hide")) {
+            // show
+              ifmelm.src = "pdfviewer.html";
+
+              ifmelm.onload = async (data) =>{
+                console.log("iframe onload", data);
+
+                // set FilePath
+                var url = "";
+                if (item.metadata &&
+                  item.metadata.source &&
+                  item.metadata.source.shared_link &&
+                  item.metadata.source.shared_link.url) {
+                  // set External URL
+                  url = item.metadata.source.shared_link.url;
+                } else {
+                  // set Dummy URL. this API is test function.
+                  let jsn = JSON.parse(this.dc_paramjson);
+                  if (!jsn) return
+                  let prj_id = jsn.projectId;
+                  let col_id = "";
+                  let doc_id = "";
+                  if (item.metadata?.parent_document_id && item.result_metadata?.collection_id) {
+                    doc_id = item.metadata.parent_document_id;
+                    col_id = item.result_metadata.collection_id;
+                  }
+                  if (!(prj_id && col_id && doc_id )) return;
+                  url = `${LOCAL_URL}${prj_id}/${col_id}/${doc_id}`;
+                }
+                console.log("[previewFile] file path: ", url);
+
+                // set PDF Page
+                var targetPageNum = 1;
+                if (item.extracted_metadata?.text_mappings) {
+                  let mappings = JSON.parse(item.extracted_metadata?.text_mappings);
+                  if (mappings) {
+                    let firstpage = mappings.text_mappings[0];
+                    if (firstpage.page?.page_number) {
+                      targetPageNum = firstpage.page.page_number;
+                    }
+                  }
+                }
+
+                // set Highlight Passages
+                var passage_text = "";
+                if (item.document_passages && item.document_passages.length > 0) {
+                  let docpa = item.document_passages[0];
+                  if (docpa.passage_text) {
+                    passage_text = docpa.passage_text;
+                  }
+                }
+                if (!url || !targetPageNum || !passage_text) return;
+
+                ifmelm.contentWindow.postMessage({
+                  "api":"setWDInfos",
+                  "params":{
+                      "url": url,
+                      "targetPageNum": targetPageNum,
+                      "passage_text": passage_text,
+                  }
+                }, "*")
+              }
+
+              clist.remove("hide");
+            // }
+          } else {
+            // hide
+            ifmelm.src = "";
+            clist.add("hide");
+          }
         },
 
         // Send Request
@@ -440,7 +614,7 @@
             // cache: "no-cache",
             headers: {
               "Content-Type": "application/json",
-              'Authorization': 'Basic ' + btoa('test' + ":" + 'test')
+              // 'Authorization': 'Basic ' + btoa('test' + ":" + 'test')
             },
             body: JSON.stringify({
               "api":api,
@@ -598,25 +772,30 @@
                     }
                 }
               }
-              
-              // set only use datas.
-              target.push({
-                "no": cnt,
-                "document_id": item.document_id,
-                "result_metadata": item.result_metadata,
-                "extracted_metadata":item.extracted_metadata,
-                "metadata": item.metadata,
-                "document_passages":item.document_passages,
-                "projectId": item.projectId,
+              item.no = cnt;
 
-                // for customize 
-                "question": item.question,
-                "answer": item.answer
-              });
+              // set datas.
+              target.push(item);
+              // set only use datas.
+              // target.push({
+              //   "no": cnt,
+              //   "document_id": item.document_id,
+              //   "result_metadata": item.result_metadata,
+              //   "extracted_metadata":item.extracted_metadata,
+              //   "metadata": item.metadata,
+              //   "document_passages":item.document_passages,
+              //   "projectId": item.projectId,
+
+              //   // for customize 
+              //   "question": item.question,
+              //   "answer": item.answer,
+              //   "method": item.method
+              // });
+
               cnt++;
             }
           }
-          console.log(target);
+          // console.log(target);
           this.dc_outputjsons = target;
         },
 
@@ -629,6 +808,9 @@
       mounted() {
         console.log("vue mounted.");
         this.init();
+
+        // set Default
+        this.dc_inputnlq = this.dc_inputnlq_items[0];
       }
     })
 
