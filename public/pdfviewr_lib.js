@@ -93,26 +93,32 @@ class PDFViewer {
 
       let texts = textContent.items;
       // search first_word position
+      let fw_idx_offset = 0;
       let fw_idx = texts.findIndex((itm, i) => {
-        if (texts[i].str === self.Settings.passage_first_word_1) {
-          let n = 1;
-          while (texts[i + n].str === " ") {
-            n++;
-          }
-          if (texts[i + n].str === self.Settings.passage_first_word_2) return true;
+        if (itm.str.length === 0) return false;
+        if (self.Settings.passage_first_word_1.indexOf(texts[i].str) >= 0) {
+          fw_idx_offset = 1;
+          while (texts[i+fw_idx_offset].str === "" || texts[i+fw_idx_offset].str === " " ||
+                  self.Settings.passage_first_word_1.indexOf(texts[i+fw_idx_offset].str) >= 0) fw_idx_offset++;
+
+          if (self.Settings.passage_first_word_2.indexOf(texts[i+fw_idx_offset].str) >= 0) return true;
         }
       });
 
       // search last_word position
+      let lw_idx_offset = 0;
       let lw_idx = texts.findLastIndex((itm, i) => {
-        if (texts[i].str === self.Settings.passage_last_word_1) {
-          let p = 1;
-          while (texts[i - p].str === " ") {
-            p--;
-          }
-          if (texts[i - p].str === self.Settings.passage_last_word_2) return true;
+        if (i <= fw_idx + fw_idx_offset) return false;
+        if (itm.str.length === 0) return false;
+        if (self.Settings.passage_last_word_1.indexOf(texts[i].str) >= 0) {
+          lw_idx_offset = 1;
+          while (texts[i-lw_idx_offset].str === "" || texts[i-lw_idx_offset].str === " " || 
+                  self.Settings.passage_last_word_1.indexOf(texts[i-lw_idx_offset].str) >= 0) lw_idx_offset++;
+
+          if (self.Settings.passage_last_word_2.indexOf(texts[i-lw_idx_offset].str) >= 0) return true;
         }
       });
+
       self.LOG("[highlightTexts] First Word index:", fw_idx, ", Last Word index:", lw_idx);
       if (!(fw_idx > 0 && lw_idx > 0)) return;
 
@@ -182,10 +188,10 @@ class PDFViewer {
 
     // get first and last words
     let passage_splits = params.passage_text.split(" "); // split by "SP"
-    self.Settings.passage_first_word_1 = passage_splits[0];
-    self.Settings.passage_first_word_2 = passage_splits[1];
-    self.Settings.passage_last_word_1 = passage_splits[passage_splits.length - 1];
-    self.Settings.passage_last_word_2 = passage_splits[passage_splits.length - 2];
+    self.Settings.passage_first_word_1 = passage_splits[0].replace(/<\/?em>/g, "");
+    self.Settings.passage_first_word_2 = passage_splits[1].replace(/<\/?em>/g, "");
+    self.Settings.passage_last_word_1 = passage_splits[passage_splits.length - 1].replace(/<\/?em>/g, "");
+    self.Settings.passage_last_word_2 = passage_splits[passage_splits.length - 2].replace(/<\/?em>/g, "");
 
     // get emphasis word　list
     let em_lists = params.passage_text.match(/<em>(.*?)<\/em>/g).map(item => item.replace(/<\/?em>/g, ""));
