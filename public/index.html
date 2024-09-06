@@ -300,30 +300,30 @@
                               </v-expansion-panel-content>
                             </v-expansion-panel>
 
-                            <v-expansion-panel>
+                            <v-expansion-panel v-if="item.question && item.question.length > 0">
                               <v-expansion-panel-header color="info--text">
                                 <div class="wdt12">Question</div>
                               </v-expansion-panel-header>
                               <v-expansion-panel-content>
-                                <div class="" v-if="item.question && item.question.length > 0">{{ item.question }}</div>
+                                <div class="">{{ item.question }}</div>
                               </v-expansion-panel-content>
                             </v-expansion-panel>
 
-                            <v-expansion-panel>
+                            <v-expansion-panel v-if="item.answer && item.answer.length > 0">
                               <v-expansion-panel-header color="info--text">
                                 <div class="wdt12">Answer</div>
                               </v-expansion-panel-header>
                               <v-expansion-panel-content>
-                                <div class="ws-preline" v-if="item.answer && item.answer.length > 0">{{ formatTexts(item.answer) }}</div>
+                                <div class="ws-preline">{{ formatTexts(item.answer) }}</div>
                               </v-expansion-panel-content>
                             </v-expansion-panel>
 
-                            <v-expansion-panel>
+                            <v-expansion-panel v-if="item.method && item.method.length > 0">
                               <v-expansion-panel-header color="info--text">
                                 <div class="wdt12">Method</div>
                               </v-expansion-panel-header>
                               <v-expansion-panel-content>
-                                <div class="ws-preline" v-if="item.method && item.method.length > 0">{{ formatTexts(item.method) }}</div>
+                                <div class="ws-preline">{{ formatTexts(item.method) }}</div>
                               </v-expansion-panel-content>
                             </v-expansion-panel>
                           </v-expansion-panels>
@@ -498,10 +498,11 @@
             // convert array to texts.
             if (Array.isArray(text_arry)) {
               ret_text = text_arry.join();
+              // add LF
+              ret_text = ret_text.replace(/。/g, "。\n");
+            } else {
+              ret_text = text_arry;
             }
-
-            // add LF
-            ret_text = ret_text.replace(/。/g, "。\n");
           }
           return ret_text;
         },
