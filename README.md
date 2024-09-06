@@ -112,3 +112,4 @@ node server.js
 ## 続く
 ### [コンテナサービスへのデプロイ](./doc/ce/deploy_codeengine.md)
 ### [CSVデータ取り込みのカスタマイズ](./doc/csv/csv_import.md)
+### [PDFファイルのプレビュー機能](./doc/pdfviewer/pdf_preview.md)
