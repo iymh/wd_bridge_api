@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+
+  <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/@mdi/font@7.x/css/materialdesignicons.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.min.css" rel="stylesheet">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Watson Discovery Check Datas</title>
+  <style>
+    [v-cloak] {
+      display: none;
+    }
+    .wdt2 {
+      width: 2rem;
+    }
+    .wdt5 {
+      width: 5rem;
+    }
+    .wdt10 {
+      width: 10rem;
+    }
+    .wdt12 {
+      width: 12rem;
+    }
+    .ws-preline {
+      white-space: pre-line;
+    }
+
+    .hide {
+      display: none;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="app" v-cloak>
+    <v-app>
+      <v-app-bar app>
+        <v-app-bar-title>Watson Discovery Check Datas</v-app-bar-title>
+        <v-spacer></v-spacer>
+      </v-app-bar>
+
+      <!-- Toast Component -->
+      <v-snackbar
+        v-model="toast.show"
+        bottom
+        multi-line
+        :timeout="toast.timeout"
+        :color="toast.type"
+        @click="toast.show = false">
+        <div class="rw">{{ toast.text }}</div>
+      </v-snackbar>
+
+      <!-- Discovery Options Dialog -->
+      <v-dialog v-model="dc_param_dialog">
+        <v-card class="">
+          <v-card-title>
+            <span class="text-h5">Query Parameters</span>
+          </v-card-title>
+          <v-card-text class="flex-grow-1">
+            <v-textarea
+              v-model="dc_paramjson"
+              label="Request Params"
+              outlined
+              rows="5"
+            ></v-textarea>
+          </v-card-text>
+          <v-card-actions>
+            <v-spacer></v-spacer>
+            <v-btn color="secondary"
+              @click="dc_param_dialog=false">
+              Cancel
+            </v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-dialog>
+
+      <v-main>
+        <v-container>
+
+          <v-divider></v-divider>
+          <div class="ma-2">
+
+            <v-row class="justify-center align-center ma-3">
+              <v-select
+                class="wdt12"
+                label="Project"
+                outlined
+                dense
+                :items="dc_projects"
+                item-text="name"
+                item-value="project_id"
+                v-model="dc_project_selected"
+                return-object
+                hide-details
+              ></v-select>
+
+              <v-select
+                label="Collections"
+                outlined
+                dense
+                multiple
+                :items="dc_collections"
+                item-text="name"
+                item-value="collection_id"
+                v-model="dc_collections_selected"
+                return-object
+                hide-details
+              ></v-select>
+            </v-row>
+
+            <v-row class="justify-center align-center ma-3">
+              <v-btn 
+                tile color="primary"
+                elevation="1"
+                rounded
+                @click="sendQuery()">
+                <v-icon left>mdi-card-search-outline</v-icon>
+                <span>Search</span>
+              </v-btn>
+
+              <v-btn color="primary"
+                icon elevation="1"
+                @click="dc_param_dialog=true">
+                <v-icon>mdi-code-json</v-icon>
+              </v-btn>
+
+              <v-btn color="secondary"
+                icon elevation="1"
+                :class="[(dc_outputjsons.length > 0) ? '': 'hide']"
+                @click="createXlSXfile()">
+                <v-icon>mdi-file-table-outline</v-icon>
+              </v-btn>
+            </v-row>
+          </div>
+
+          <v-divider></v-divider>
+          <div class="text-h5 primary--text">Result:</div>
+          <div class="ma-2">
+
+              <v-data-table
+                :headers = "headers"
+                :items = "dc_outputjsons"
+                item-key = "No"
+                :loading = "dc_tbl_loading"
+                :items-per-page = 100
+                no-data-text = "No Datas..."
+                dense
+                hide-default-footer
+              >
+                <template v-slot:[`item`]="{ item, index }">
+                  <tr>
+                    <td>
+                      <div class="">{{item.no}}</div>
+                    </td>
+                    <td>
+                      <div class="">{{item.extracted_metadata.filename}}</div>
+                    </td>
+                    <td>
+                      <div v-if="item.result_metadata.collection_id">{{ getCollectionsNames(item.result_metadata.collection_id) }}</div>
+                    </td>
+                    <td>
+                      <div class="" v-if="item.document_passages.length > 0" v-html="item.document_passages[0].passage_text"></div>
+                    </td>
+                    <td>
+                      <div class="">{{item.question}}</div>
+                    </td>
+                    <td>
+                      <div class="">{{item.answer}}</div>
+                    </td>
+                    <td>
+                      <div class="">{{item.method}}</div>
+                    </td>
+                    <td>
+                      <div class="">{{item.procedure}}</div>
+                    </td>
+                  </tr>
+                </template>
+              </v-data-table>
+          </div>
+
+        </v-container>
+      </v-main>
+    </v-app>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/vue@2.x/dist/vue.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.js"></script>
+
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <script type="module">
+    const LOCAL_URL = "./";
+
+    new Vue({
+      el: '#app',
+      vuetify: new Vuetify(),
+
+      data:() => ({
+        // components
+        toast:{
+          show: false,
+          timeout: 5000,
+          type: "primary",
+          text:""
+        },
+
+        // Discovery API
+        dc_param_dialog: false,
+        dc_paramjson: JSON.stringify({
+          "projectId": "", 
+          "collectionIds":[],
+          "filter": "",
+          "passages":{
+              "enabled":true,
+              // "find_answers": true,
+              "per_document":true,
+              "fields":[] // all fields
+          },
+          "count":2000,
+          "aggregation":"",
+          "_return":[
+            // "metadata","result_metadata",
+            // "extracted_metadata.filename","extracted_metadata.file_type","extracted_metadata.title",
+            // "answer","question","method", // add custom fields
+          ],
+          // "naturalLanguageQuery":""
+        }),
+
+        dc_projects: [],
+        dc_project_selected: "",
+        dc_collections: [],
+        dc_collections_selected: [],
+
+        dc_inputnlq: "",
+        dc_isAF: true,
+
+        dc_tbl_loading: false,
+        dc_outputjsons: [],
+
+        headers:[
+          { text:"No", value:"no", width:'4rem', class:"2rem"},
+          { text:"ファイル名", value:"extracted_metadata.filename", width:"5rem"},
+          { text:"コレクション名", value:"result_metadata.collection_id", width:"5rem"},
+          { text:"本文", value:"document_passages[0].passage_text", width:"10rem"},
+          { text:"Question", value:"question", width:"12rem"},
+          { text:"Answer", value:"answer", width:"12rem"},
+          { text:"Method", value:"method", width:"10rem"},
+          { text:"Procedure", value:"procedure", width:"10rem"},
+        ],
+      }),
+
+      watch: {
+        dc_project_selected: function(pid) {
+          console.log("[dc_projects_selected] change", pid.project_id);
+          let param = JSON.parse(this.dc_paramjson);
+          param.projectId = pid.project_id;
+          this.dc_paramjson = JSON.stringify(param);
+
+          this.listCollections();
+        },
+
+        dc_collections_selected: function(cids) {
+          console.log("[dc_collections_selected] change", cids);
+          let param = JSON.parse(this.dc_paramjson);
+          param.collectionIds = cids.map(c => c.collection_id);
+          this.dc_paramjson = JSON.stringify(param);
+        },
+      },
+
+      methods: {
+        // Common
+        getCollectionsNames(coll_id) {
+          let col = this.dc_collections.find(col => col.collection_id === coll_id);
+          if (col) {
+            return col.name;
+          } else {
+            return null;
+          }
+        },
+        
+        formatTexts(text_arry) {
+          let ret_text = "";
+          if (text_arry.length > 0) {
+            // convert array to texts.
+            if (Array.isArray(text_arry)) {
+              ret_text = text_arry.join();
+              // add LF
+              ret_text = ret_text.replace(/。/g, "。\n");
+            } else {
+              ret_text = text_arry;
+            }
+          }
+          return ret_text;
+        },
+
+        // components
+        showToast(msg) {
+          this.toast.text = msg;
+          this.toast.show = true;
+        },
+
+        // Send Request
+        async callapi(method, api, params) {
+          console.log("[callapi]", api);
+
+          console.log("fetch start");
+          let res = await fetch(`${LOCAL_URL}api`, {
+            method: method,
+            // mode: "cors",
+            // cache: "no-cache",
+            headers: {
+              "Content-Type": "application/json",
+              // 'Authorization': 'Basic ' + btoa('test' + ":" + 'test')
+            },
+            body: JSON.stringify({
+              "api":api,
+              "params":params}
+            )
+          });
+          console.log("fetch end", res);
+          if (!res.ok) {
+            throw new Error(`status = ${res.status}, statusText = ${res.statusText}`);
+          } 
+          const jsondata = await res.json();
+          // console.log("jsondata : " + JSON.stringify(jsondata));
+          return jsondata;
+        },
+
+        async listProjects(showtoast) {
+          console.log("[listProjects]", this.dc_paramjson);
+
+          let jsn = JSON.parse(this.dc_paramjson);
+          if (!jsn) return
+
+          let prm = {};
+
+          // clear
+          this.dc_projects = [];
+          this.dc_collections = [];
+
+          let ret = await this.callapi("POST", "listProjects", prm);
+          if (ret) {
+            this.dc_projects = ret.projects;
+            this.dc_project_selected = ret.projects[0]; // set first item
+            console.log(ret);
+            if (showtoast) this.showToast("プロジェクトの取得が完了しました");
+            return true;
+          } else {
+            if (showtoast) this.showToast("プロジェクトの取得が失敗しました");
+            return false;
+          }
+        },
+
+        async listCollections(showtoast) {
+          console.log("[listCollections]", this.dc_paramjson);
+
+          let jsn = JSON.parse(this.dc_paramjson);
+          if (!jsn) return
+
+          let prm = {
+            "projectId": this.dc_project_selected.project_id
+          };
+          console.log(prm);
+
+          // clear collections
+          this.dc_collections = [];
+          this.dc_collections_selected = [];
+
+          let ret = await this.callapi("POST", "listCollections", prm);
+          if (ret) {
+            this.dc_collections = ret.collections;
+            if (showtoast) this.showToast("コレクションの取得が完了しました");
+            return true;
+          } else {
+            if (showtoast) this.showToast("コレクションの取得が失敗しました");
+            return false;
+          }
+        },
+
+        async sendQuery(showtoast) {
+          console.log("[sendQuery]", this.dc_paramjson);
+
+          let jsn = JSON.parse(this.dc_paramjson);
+          if (!jsn) return
+
+          // NLQ
+          if (this.dc_inputnlq) {
+            jsn.naturalLanguageQuery = this.dc_inputnlq.replace(/\n/g,'');
+          } else {
+            jsn.naturalLanguageQuery = "";
+          }
+
+          // clear table views
+          this.dc_outputjsons = [];
+
+          let prm = JSON.parse(JSON.stringify(jsn)); // deep copy.
+          this.dc_tbl_loading = true;
+
+          let ret = true;
+          let ret_json = await this.callapi("POST", "query", prm);
+          if (ret_json) {
+            this.setResultTable(ret_json);
+            if (showtoast) this.showToast("データの取得が完了しました");
+          } else {
+            if (showtoast) this.showToast("データの取得が失敗しました");
+            ret = false;
+          }
+          this.dc_tbl_loading = false;
+          return ret;
+        },
+
+        // Result
+        setResultTable(json) {
+          // convert json to array for table.
+          console.log("[setResultTable]");
+          if (!json.results) return;
+          console.log(json);
+          let target = [];
+
+          let cnt = 1;
+          let len = json.results.length;
+          for (let i=0; i<len; i++) {
+
+            let item = json.results[i];
+            if (item && item.document_passages) {
+              // create folder path text.
+              if (item.metadata &&
+                  item.metadata.source) {
+                item.metadata.source.path_text = ""; // init new field.
+
+                if (item.metadata &&
+                    item.metadata.source &&
+                    item.metadata.source.path_collection &&
+                    item.metadata.source.path_collection.entries) {
+                    let folderpath = item.metadata.source.path_collection.entries;
+                    if (folderpath.length > 0) {
+                      if (folderpath[0].name !== "すべてのファイル") folderpath = folderpath.reverse();
+                        item.metadata.source.path_text = folderpath.map(item => item.name).join(" > ");
+                    }
+                }
+              }
+              item.no = cnt;
+
+              // set datas.
+              target.push(item);
+              // set only use datas.
+              // target.push({
+              //   "no": cnt,
+              //   "document_id": item.document_id,
+              //   "result_metadata": item.result_metadata,
+              //   "extracted_metadata":item.extracted_metadata,
+              //   "metadata": item.metadata,
+              //   "document_passages":item.document_passages,
+              //   "projectId": item.projectId,
+
+              //   // for customize 
+              //   "question": item.question,
+              //   "answer": item.answer,
+              //   "method": item.method
+              // });
+
+              cnt++;
+            }
+          }
+          // console.log(target);
+          this.dc_outputjsons = target;
+        },
+
+        createXlSXfile() {
+          console.log("[createXlSXfile]");
+
+          /* generate worksheet and workbook */
+          const worksheet = XLSX.utils.json_to_sheet(this.dc_outputjsons);
+          const workbook = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(workbook, worksheet, "Results");
+          XLSX.writeFile(workbook, `WD登録データ一覧.xlsx`, { compression: true });
+        },
+
+        // init
+        async init() {
+          let ret_prj = await this.listProjects();
+          console.log("[init] listProjects return:", ret_prj);
+        }
+      },
+      mounted() {
+        console.log("vue mounted.");
+        this.init();
+      }
+    })
+
+  </script>
+</body>
+
+</html>
